@@ -1,0 +1,34 @@
+{
+  "name": "pace-app",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-auto": "latest",
+    "@sveltejs/kit": "latest",
+    "@sveltejs/vite-plugin-svelte": "latest",
+    "svelte": "latest",
+    "svelte-check": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "@types/mdast": "latest"
+  },
+  "dependencies": {
+    "gray-matter": "latest",
+    "katex": "latest",
+    "rehype-katex": "latest",
+    "rehype-raw": "latest",
+    "rehype-stringify": "latest",
+    "remark-gfm": "latest",
+    "remark-math": "latest",
+    "remark-parse": "latest",
+    "remark-rehype": "latest",
+    "unified": "latest"
+  }
+}
