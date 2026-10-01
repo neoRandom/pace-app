@@ -7,7 +7,7 @@
   --color-foreground: #d2c4b5;
 
   /* Borders */
-  --color-border: #95887b;
+  --color-border: #d2c4b5;
   --color-border-muted: #766b61;
   --color-border-subtle: #5d554e;
   --color-border-dark: #47413c;
@@ -71,6 +71,10 @@ input:focus-visible,
 textarea:focus-visible {
   outline: 2px solid var(--color-foreground);
   outline-offset: 2px;
+}
+
+a {
+  color: var(--color-accent);
 }
 
 .screen {

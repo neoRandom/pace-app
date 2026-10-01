@@ -297,7 +297,8 @@
   }
 
   .loading-box {
-    border: 3px solid #cfcfce;
+    border: 2px solid #d2c4b5;
+    border-radius: var(--border-radius);
     padding: 24px;
     text-align: center;
     min-width: min(460px, 80vw);
