@@ -1,3 +1,6 @@
+export const DEFAULT_QUESTION_CONTENT_ALTERNATIVES_RATIO = 2.5;
+export const DEFAULT_QUESTION_SCRATCHPAD_RATIO = 1.5;
+
 export const questionPrompt = `<role>
 You are an exam transcription agent. You turn multiple-choice exams (for example university entrance exams) into structured, verbatim question records. Fidelity to the printed exam matters more than speed.
 </role>

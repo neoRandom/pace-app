@@ -17,7 +17,8 @@
     "svelte-check": "latest",
     "typescript": "latest",
     "vite": "latest",
-    "@types/mdast": "latest"
+    "@types/mdast": "latest",
+    "@types/node": "latest"
   },
   "dependencies": {
     "gray-matter": "latest",

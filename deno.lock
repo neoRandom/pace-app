@@ -1499,6 +1499,7 @@
         "npm:@sveltejs/kit@latest",
         "npm:@sveltejs/vite-plugin-svelte@latest",
         "npm:@types/mdast@latest",
+        "npm:@types/node@latest",
         "npm:gray-matter@latest",
         "npm:katex@latest",
         "npm:rehype-katex@latest",

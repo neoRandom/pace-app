@@ -3,7 +3,17 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#111111" />
+    <meta name="theme-color" content="#171513" />
+    <script>
+      try {
+        const settings = JSON.parse(localStorage.getItem('pace-study-settings') || 'null');
+        const theme = settings?.theme === 'light' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = theme;
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f7f5f2' : '#171513');
+      } catch {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    </script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">

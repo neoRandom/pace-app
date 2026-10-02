@@ -1,4 +1,7 @@
+import { readdir, readFile } from "node:fs/promises";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import matter from "gray-matter";
+import { env } from "$env/dynamic/private";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
@@ -19,6 +22,50 @@ type Frontmatter = Partial<{
   knowledge: unknown;
   answer: unknown;
 }>;
+
+type QuestionFile = {
+  id: string;
+  path: string;
+};
+
+const DEFAULT_CONTENT_DIR = "src/content";
+
+function contentRoot(): string {
+  const configured = env.PACE_CONTENT_DIR?.trim() || DEFAULT_CONTENT_DIR;
+  return isAbsolute(configured) ? resolve(configured) : resolve(process.cwd(), configured);
+}
+
+async function walkQuestionDirectory(directory: string): Promise<string[]> {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const entryPath = join(directory, entry.name);
+
+    if (entry.isDirectory()) {
+      files.push(...(await walkQuestionDirectory(entryPath)));
+      continue;
+    }
+
+    if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
+      files.push(entryPath);
+    }
+  }
+
+  return files;
+}
+
+async function discoverQuestionFiles(): Promise<QuestionFile[]> {
+  const questionsRoot = join(contentRoot(), "questions");
+  const absolutePaths = await walkQuestionDirectory(questionsRoot);
+
+  const files = absolutePaths.map((path) => ({
+    id: questionIdFromPath(path, questionsRoot),
+    path,
+  }));
+
+  return files.sort((a, b) => a.id.localeCompare(b.id));
+}
 
 function asString(value: unknown, fallback = ""): string {
   if (value === null || value === undefined) return fallback;
@@ -219,36 +266,33 @@ export async function parseQuestion(
   };
 }
 
-const questionFiles = import.meta.glob("/src/content/questions/*.md", {
-  eager: true,
-  query: "?raw",
-  import: "default",
-}) as Record<string, string>;
-
-function questionIdFromPath(path: string): string {
-  const fileName = path.split("/").pop() ?? path;
-  return fileName.replace(/\.md$/i, "");
+function questionIdFromPath(filePath: string, questionsRoot: string): string {
+  const relativePath = relative(questionsRoot, filePath).split(sep).join("/");
+  return relativePath.replace(/\.md$/i, "");
 }
 
-export function listQuestionIds(): string[] {
-  return Object.keys(questionFiles).map(questionIdFromPath).sort();
+export async function listQuestionIds(): Promise<string[]> {
+  const files = await discoverQuestionFiles();
+  return files.map((file) => file.id);
 }
 
 export async function loadQuestion(id: string): Promise<ParsedQuestion> {
-  const path = Object.keys(questionFiles).find(
-    (candidate) => questionIdFromPath(candidate) === id,
-  );
-  if (!path) throw new Error(`Question not found: ${id}`);
-  return parseQuestion(questionFiles[path], id);
+  const files = await discoverQuestionFiles();
+  const file = files.find((candidate) => candidate.id === id);
+  if (!file) throw new Error(`Question not found: ${id}`);
+
+  return parseQuestion(await readFile(file.path, "utf8"), file.id);
 }
 
 export async function loadQuestionMetadata(): Promise<QuestionMetadata[]> {
+  const files = await discoverQuestionFiles();
   const result: QuestionMetadata[] = [];
-  for (const [path, raw] of Object.entries(questionFiles)) {
-    const id = questionIdFromPath(path);
+
+  for (const file of files) {
+    const raw = await readFile(file.path, "utf8");
     const parsed = matter(raw).data as Frontmatter;
     result.push({
-      id,
+      id: file.id,
       category: asString(parsed.category, "Uncategorized"),
       tags: parseTags(parsed.tags),
       source: asString(parsed.source, "Unknown source"),
@@ -257,5 +301,6 @@ export async function loadQuestionMetadata(): Promise<QuestionMetadata[]> {
       answer: parseAnswer(parsed.answer),
     });
   }
-  return result.sort((a, b) => a.id.localeCompare(b.id));
+
+  return result;
 }

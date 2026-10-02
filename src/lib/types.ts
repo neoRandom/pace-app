@@ -14,8 +14,16 @@ export interface ParsedQuestion extends QuestionMetadata {
 }
 
 export interface AppSettings {
+  theme: 'dark' | 'light';
   minCooldownMinutes: number;
   maxCooldownMinutes: number;
+  notificationsEnabled: boolean;
+  attentionSoundEnabled: boolean;
+  attentionSoundIntervalSeconds: number;
+  attentionSoundVolume: number;
+  questionContentAlternativesRatio: number;
+  questionScratchpadRatio: number;
+  showQuestionSidebar: boolean;
 }
 
 export type TrainingPhase = 'cooldown' | 'answering' | 'answered';

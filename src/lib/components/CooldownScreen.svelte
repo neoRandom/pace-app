@@ -1,7 +1,10 @@
 <script lang="ts">
   export let remainingMs = 0;
+  export let cooldownPaused = false;
   export let timerVisible = false;
+  export let availableQuestionCount = 0;
   export let onSkip: () => void;
+  export let onTogglePause: () => void;
   export let onPressStart: () => void;
   export let onPressEnd: () => void;
   export let onSettings: () => void;
@@ -17,9 +20,15 @@
 <section class="screen cooldown-screen" aria-label="Cooldown">
   <div class="cooldown-center">
     <button class="wire-button skip-button" type="button" on:click={onSkip}>Skip cooldown</button>
-    {#if timerVisible}
-      <output class="countdown" aria-live="polite">{formatTime(remainingMs)}</output>
-    {/if}
+    <div class="cooldown-controls">
+      <button class="wire-button" type="button" on:click={onTogglePause}>
+        {cooldownPaused ? 'Resume' : 'Pause'}
+      </button>
+      {#if timerVisible}
+        <output class="countdown" aria-live="polite">{formatTime(remainingMs)}</output>
+      {/if}
+    </div>
+    <div class="available-count">{availableQuestionCount} {availableQuestionCount === 1 ? 'question' : 'questions'} available</div>
   </div>
 
   <button class="wire-button settings-button" type="button" on:click={onSettings}>Settings</button>

@@ -4,7 +4,8 @@
 </script>
 
 <svelte:head>
-  <title>PACE</title>
+  <title>Pace</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <meta name="description" content="A local Markdown-driven study application." />
 </svelte:head>
 
