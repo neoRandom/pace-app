@@ -14,6 +14,9 @@ import {
 
   const SETTINGS_KEY = 'pace-study-settings';
   const IGNORE_QUESTIONS_KEY = 'pace-study-ignore-question-files';
+  const QUESTION_SESSION_KEY = 'pace-study-current-question';
+  const QUESTION_STATE_KEY = 'pace-study-current-question-state';
+  const LEGACY_QUESTION_EPHEMERAL_KEY = 'pace-study-current-question-ephemeral';
   const ATTENTION_CUE_INITIAL_DELAY_MS = 1_000;
   const DEFAULT_SETTINGS: AppSettings = {
     theme: 'dark',
@@ -44,6 +47,19 @@ import {
   let ignoredQuestionFiles = new Set<string>();
   let selectionStateInitialized = false;
   let loadingQuestion = false;
+
+  type PersistedQuestionSession = {
+    questionId: string;
+    phase: 'answering' | 'answered';
+    selectedAlternative: number | null;
+  };
+
+  type PersistedQuestionEphemeral = {
+    questionId: string;
+    draftText: string;
+    elapsedMs: number;
+    elapsedRunning: boolean;
+  };
 
   let questionElapsedMs = 0;
   let questionElapsedAccumulatedMs = 0;
@@ -171,6 +187,7 @@ import {
         0,
         questionElapsedAccumulatedMs + Date.now() - questionElapsedStartedAt,
       );
+      persistQuestionEphemeralState();
     }, 250);
   }
 
@@ -185,6 +202,7 @@ import {
     questionElapsedRunning = false;
     questionElapsedStartedAt = 0;
     stopQuestionElapsedTimer();
+    persistQuestionEphemeralState();
   }
 
   function toggleQuestionElapsedTimer() {
@@ -197,6 +215,131 @@ import {
       IGNORE_QUESTIONS_KEY,
       JSON.stringify([...ignoredQuestionFiles]),
     );
+  }
+
+  function persistQuestionSession() {
+    if (!activeQuestionId || (phase !== 'answering' && phase !== 'answered')) {
+      return;
+    }
+
+    const session: PersistedQuestionSession = {
+      questionId: activeQuestionId,
+      phase,
+      selectedAlternative,
+    };
+
+    localStorage.setItem(QUESTION_SESSION_KEY, JSON.stringify(session));
+  }
+
+  function persistQuestionEphemeralState() {
+    if (!activeQuestionId || (phase !== 'answering' && phase !== 'answered')) {
+      return;
+    }
+
+    const state: PersistedQuestionEphemeral = {
+      questionId: activeQuestionId,
+      draftText,
+      elapsedMs: questionElapsedMs,
+      elapsedRunning: questionElapsedRunning && phase === 'answering',
+    };
+
+    localStorage.setItem(QUESTION_STATE_KEY, JSON.stringify(state));
+  }
+
+  function clearQuestionEphemeralState() {
+    localStorage.removeItem(QUESTION_STATE_KEY);
+    sessionStorage.removeItem(LEGACY_QUESTION_EPHEMERAL_KEY);
+    resetQuestionElapsedTimer();
+    draftText = '';
+  }
+
+  function restoreQuestionEphemeralState(questionId: string) {
+    try {
+      const raw = localStorage.getItem(QUESTION_STATE_KEY);
+      if (!raw) {
+        const legacyRaw = sessionStorage.getItem(LEGACY_QUESTION_EPHEMERAL_KEY);
+        if (legacyRaw) {
+          localStorage.setItem(QUESTION_STATE_KEY, legacyRaw);
+          sessionStorage.removeItem(LEGACY_QUESTION_EPHEMERAL_KEY);
+        }
+      }
+      const persistedRaw = localStorage.getItem(QUESTION_STATE_KEY);
+      if (!persistedRaw) {
+        resetQuestionElapsedTimer();
+        draftText = '';
+        return;
+      }
+
+      const parsed = JSON.parse(persistedRaw) as Partial<PersistedQuestionEphemeral>;
+      if (
+        parsed.questionId !== questionId ||
+        typeof parsed.draftText !== 'string' ||
+        typeof parsed.elapsedMs !== 'number' ||
+        !Number.isFinite(parsed.elapsedMs) ||
+        parsed.elapsedMs < 0 ||
+        typeof parsed.elapsedRunning !== 'boolean'
+      ) {
+        clearQuestionEphemeralState();
+        return;
+      }
+
+      stopQuestionElapsedTimer();
+      questionElapsedMs = parsed.elapsedMs;
+      questionElapsedAccumulatedMs = parsed.elapsedMs;
+      questionElapsedRunning = false;
+      questionElapsedStartedAt = 0;
+      draftText = parsed.draftText;
+
+      if (parsed.elapsedRunning && phase === 'answering') {
+        startQuestionElapsedTimer();
+      }
+
+      persistQuestionEphemeralState();
+    } catch {
+      clearQuestionEphemeralState();
+    }
+  }
+
+  function clearQuestionSession() {
+    localStorage.removeItem(QUESTION_SESSION_KEY);
+  }
+
+  function readQuestionSession(): PersistedQuestionSession | null {
+    try {
+      const raw = localStorage.getItem(QUESTION_SESSION_KEY);
+      if (!raw) return null;
+
+      const parsed = JSON.parse(raw) as Partial<PersistedQuestionSession>;
+      if (
+        typeof parsed.questionId !== 'string' ||
+        parsed.questionId.length === 0 ||
+        (parsed.phase !== 'answering' && parsed.phase !== 'answered') ||
+        (parsed.selectedAlternative !== null &&
+          typeof parsed.selectedAlternative !== 'number')
+      ) {
+        return null;
+      }
+
+      return {
+        questionId: parsed.questionId,
+        phase: parsed.phase,
+        selectedAlternative: parsed.selectedAlternative ?? null,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function clearQuestionSessionAndReturnToCooldown() {
+    clearQuestionSession();
+    clearQuestionEphemeralState();
+    activeQuestion = null;
+    activeQuestionId = null;
+    selectedAlternative = null;
+    phase = 'cooldown';
+    loadingQuestion = false;
+    startCooldownTimer();
+    syncAttentionCue();
   }
 
   function clearIgnoreList() {
@@ -275,19 +418,72 @@ import {
 
     const selected = candidates[Math.floor(Math.random() * candidates.length)];
 
+    clearQuestionEphemeralState();
     activeQuestionId = selected.id;
     selectedAlternative = null;
-    draftText = '';
-    resetQuestionElapsedTimer();
     phase = 'answering';
     loadingQuestion = true;
-    syncAttentionCue();
+    persistQuestionSession();
+    persistQuestionEphemeralState();
 
     try {
       const encodedQuestionId = selected.id.split("/").map(encodeURIComponent).join("/");
       const response = await fetch(`/api/questions/${encodedQuestionId}`);
+      if (response.status === 404) {
+        clearQuestionSessionAndReturnToCooldown();
+        return;
+      }
       if (!response.ok) throw new Error(`Question ${selected.id} could not be loaded`);
       activeQuestion = (await response.json()) as ParsedQuestion;
+    } catch (error) {
+      console.error(error);
+      activeQuestion = null;
+    } finally {
+      loadingQuestion = false;
+      syncAttentionCue();
+    }
+  }
+
+  async function restoreQuestionSession() {
+    const session = readQuestionSession();
+    if (!session) {
+      localStorage.removeItem(QUESTION_SESSION_KEY);
+      startCooldownTimer();
+      return;
+    }
+
+    activeQuestionId = session.questionId;
+    selectedAlternative = session.selectedAlternative;
+    phase = session.phase;
+    restoreQuestionEphemeralState(session.questionId);
+    loadingQuestion = true;
+    syncAttentionCue();
+
+    try {
+      const encodedQuestionId = session.questionId
+        .split("/")
+        .map(encodeURIComponent)
+        .join("/");
+      const response = await fetch(`/api/questions/${encodedQuestionId}`);
+
+      if (response.status === 404) {
+        clearQuestionSessionAndReturnToCooldown();
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Question ${session.questionId} could not be restored`);
+      }
+
+      activeQuestion = (await response.json()) as ParsedQuestion;
+
+      if (
+        selectedAlternative !== null &&
+        (selectedAlternative < 0 || selectedAlternative >= activeQuestion.alternatives.length)
+      ) {
+        selectedAlternative = null;
+        persistQuestionSession();
+      }
     } catch (error) {
       console.error(error);
       activeQuestion = null;
@@ -300,11 +496,12 @@ import {
   function selectAlternative(index: number) {
     if (phase !== 'answering') return;
     selectedAlternative = selectedAlternative === index ? null : index;
+    persistQuestionSession();
   }
 
   function quitQuestion() {
-    resetQuestionElapsedTimer();
-    draftText = '';
+    clearQuestionSession();
+    clearQuestionEphemeralState();
     activeQuestion = null;
     activeQuestionId = null;
     selectedAlternative = null;
@@ -320,15 +517,14 @@ import {
     ignoredQuestionFiles = new Set([...ignoredQuestionFiles, fileName]);
     persistIgnoreList();
 
-    resetQuestionElapsedTimer();
+    pauseQuestionElapsedTimer();
     phase = 'answered';
-    draftText = '';
+    persistQuestionSession();
     syncAttentionCue();
   }
 
   async function skipQuestion() {
-    resetQuestionElapsedTimer();
-    draftText = '';
+    clearQuestionEphemeralState();
     await loadNextQuestion();
   }
 
@@ -339,14 +535,13 @@ import {
     ignoredQuestionFiles = new Set([...ignoredQuestionFiles, fileName]);
     persistIgnoreList();
 
-    resetQuestionElapsedTimer();
-    draftText = '';
+    clearQuestionEphemeralState();
     await loadNextQuestion();
   }
 
   function exitQuestion() {
-    resetQuestionElapsedTimer();
-    draftText = '';
+    clearQuestionSession();
+    clearQuestionEphemeralState();
     activeQuestion = null;
     activeQuestionId = null;
     selectedAlternative = null;
@@ -389,6 +584,7 @@ import {
 
   function draftChanged(value: string) {
     draftText = value;
+    persistQuestionEphemeralState();
   }
 
   function showTimer() {
@@ -516,18 +712,24 @@ import {
     }
 
     applyTheme(settings.theme);
-    startCooldownTimer();
     void initializeSelectionState();
+    void restoreQuestionSession();
 
     const handleFocusChange = () => {
       syncAttentionCue();
     };
 
+    const handlePageHide = () => {
+      persistQuestionEphemeralState();
+    };
+
     window.addEventListener('focus', handleFocusChange);
     window.addEventListener('blur', handleFocusChange);
     document.addEventListener('visibilitychange', handleFocusChange);
+    window.addEventListener('pagehide', handlePageHide);
 
     return () => {
+      persistQuestionEphemeralState();
       stopCooldownTimer();
       resetQuestionElapsedTimer();
       stopAttentionCue();
@@ -535,6 +737,7 @@ import {
       window.removeEventListener('focus', handleFocusChange);
       window.removeEventListener('blur', handleFocusChange);
       document.removeEventListener('visibilitychange', handleFocusChange);
+      window.removeEventListener('pagehide', handlePageHide);
       attentionAudio?.pause();
       attentionAudio = null;
     };
@@ -583,6 +786,9 @@ import {
         <div class="loading-detail">Add Markdown files to <code>&lt;PACE_CONTENT_DIR&gt;/questions/</code>.</div>
       {:else}
         <div>Loading question…</div>
+        {#if activeQuestionId}
+          <div class="loading-question-filename">{activeQuestionId}.md</div>
+        {/if}
       {/if}
     </div>
   </section>
@@ -625,4 +831,14 @@ import {
     margin-top: 12px;
     font-size: 14px;
   }
+  .loading-question-filename {
+    margin-top: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: min(70vw, 720px);
+    font-size: 12px;
+    opacity: 0.55;
+  }
+
 </style>

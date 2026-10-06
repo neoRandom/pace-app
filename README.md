@@ -92,15 +92,16 @@ Second alternative
 6. Questions are randomly selected from the current ignore cycle. Displaying a question does **not** consume it.
 7. **Quit without Answering** returns to cooldown without changing the question's consumption state.
 8. **Skip** loads another question without consuming the current question.
-9. **Ignore** consumes the current question for the current cycle and immediately loads another question.
-10. After an alternative is selected, the primary button becomes **Answer**. Answering consumes the current question, reveals the correct option, and changes the primary button to **Exit**.
-11. **Exit** returns to cooldown without changing the answered question's consumption state.
-12. Once every question is ignored or answered, the ignore list is cleared and a new selection cycle begins.
-13. The ignore list is stored in the client browser only and contains question filenames. It is cleared when the server instance changes; the client periodically checks the server instance endpoint to detect a process restart.
-14. The question screen shows an ephemeral elapsed timer. It starts at `00:00`, is paused by default, and is never persisted or sent to the server.
-15. The current number of available questions is shown unobtrusively as `total questions - questions in the ignore list`.
-16. When an automatic cooldown reaches zero, an optional browser notification may be shown while PACE is not focused or visible. Notifications are enabled by default and depend on browser support and permission.
-17. While an unresolved question is open and PACE is not focused, an optional periodic attention sound may play. It is enabled by default, uses the replaceable file `static/audio/attention-cue.wav`, and can be configured by repeat interval and volume. Browser autoplay/background throttling restrictions are handled gracefully.
+9. The current question screen is restored after a page refresh or server restart and remains active until the user quits/exits it; if the server returns 404 for that question, PACE clears the session and returns to cooldown. The scratchpad and elapsed timer state are also restored across refreshes and server restarts within the current browser tab, but are discarded when the question is left.
+10. **Ignore** consumes the current question for the current cycle and immediately loads another question.
+11. After an alternative is selected, the primary button becomes **Answer**. Answering consumes the current question, reveals the correct option, and changes the primary button to **Exit**.
+12. **Exit** returns to cooldown without changing the answered question's consumption state.
+13. Once every question is ignored or answered, the ignore list is cleared and a new selection cycle begins.
+14. The ignore list is stored in the client browser only and contains question filenames. It persists across browser reloads and server process restarts until it is exhausted automatically or manually cleared in Settings.
+15. The question screen shows an elapsed timer. It starts at `00:00`, is paused by default, and pauses while preserving its elapsed value when an answer is submitted. Its value and running state survive page refreshes and server restarts within the current browser tab, but are discarded when leaving the question. It is never sent to the server. The scratchpad follows the same lifecycle and survives refreshes/server restarts within the current tab.
+16. The current number of available questions is shown unobtrusively as `total questions - questions in the ignore list`.
+17. When an automatic cooldown reaches zero, an optional browser notification may be shown while PACE is not focused or visible. Notifications are enabled by default and depend on browser support and permission.
+18. While an unresolved question is open and PACE is not focused, an optional periodic attention sound may play. It is enabled by default, uses the replaceable file `static/audio/attention-cue.wav`, and can be configured by repeat interval and volume. Browser autoplay/background throttling restrictions are handled gracefully.
 
 ## Settings
 
