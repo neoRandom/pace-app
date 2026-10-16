@@ -298,9 +298,12 @@ describe("removeEmbeddedImages", () => {
       "",
       "```markdown",
       "![example](data:image/png;base64,KEEP_THIS_CODE)",
+      '<img src="data:image/png;base64,KEEP_HTML_CODE">',
       "```",
     ].join("\n");
 
-    expect(removeEmbeddedImages(source)).toContain("KEEP_THIS_CODE");
+    const minimal = removeEmbeddedImages(source);
+    expect(minimal).toContain("KEEP_THIS_CODE");
+    expect(minimal).toContain("KEEP_HTML_CODE");
   });
 });
