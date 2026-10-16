@@ -35,6 +35,17 @@ npm run preview
 ```
 
 
+## Tests
+
+Run the automated unit tests with:
+
+```bash
+npm install
+npm test
+```
+
+The test suite exercises question parsing, frontmatter metadata and defaults, Markdown/GFM rendering, inline and display math, reference links, comment removal, alternative ordering, and invalid or missing answers. `npm test` runs Vitest once after synchronizing SvelteKit's generated types and aliases.
+
 ## Content directory
 
 The content folder is configured with the `PACE_CONTENT_DIR` environment variable. Relative paths are resolved from the project root. The default is `src/content`, preserving the standard project layout.
