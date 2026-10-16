@@ -237,7 +237,7 @@ describe("parseQuestion", () => {
         "invalid-answer"
       )
     ).rejects.toThrow("Invalid answer index: nope");
-
+  });
 });
 
 describe("removeEmbeddedImages", () => {
