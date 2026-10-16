@@ -298,11 +298,12 @@ function removeEmbeddedImagesFromBody(markdown: string): string {
   );
 
   const root = unified().use(remarkParse).parse(body) as Root;
-  const embeddedDefinitions = new Set(
-    root.children
-      .filter((node) => node.type === "definition" && isEmbeddedImageUrl(node.url))
-      .map((node) => node.identifier),
-  );
+  const embeddedDefinitions = new Set<string>();
+  for (const node of root.children) {
+    if (node.type === "definition" && isEmbeddedImageUrl(node.url)) {
+      embeddedDefinitions.add(node.identifier);
+    }
+  }
   const ranges: SourceRange[] = [];
 
   const addRange = (node: Node) => {
