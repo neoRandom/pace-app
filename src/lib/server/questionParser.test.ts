@@ -75,7 +75,7 @@ describe("parseQuestion", () => {
         "# Content",
         "",
         "| Name | Value |",
-        "| --- | ---: |",
+        "| --- | --- |",
         "| x | 2 |",
         "",
         "# Alternatives",
