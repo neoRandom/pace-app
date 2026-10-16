@@ -264,7 +264,7 @@ describe("removeEmbeddedImages", () => {
 
     const minimal = removeEmbeddedImages(source);
 
-    expect(minimal).toContain("category: Mathematics");
+    expect(minimal.startsWith("---\\ncategory: Mathematics\\nanswer: 0\\n---\\n")).toBe(true);
     expect(minimal).toContain("Keep this text.");
     expect(minimal).toContain("Keep this too.");
     expect(minimal).not.toContain("INLINE_DATA");
