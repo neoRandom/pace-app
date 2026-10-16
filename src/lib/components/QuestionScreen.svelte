@@ -81,7 +81,7 @@
   }
 
   function handleCopyMenuKeydown(event: KeyboardEvent) {
-    if (!copyMenuOpen) return;
+    if (!copyMenuOpen || !copyDropdownElement?.contains(event.target as Node)) return;
 
     if (event.key === "Escape") {
       copyMenuOpen = false;
