@@ -7,18 +7,20 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "test": "svelte-kit sync && vitest run"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "latest",
     "@sveltejs/kit": "latest",
     "@sveltejs/vite-plugin-svelte": "latest",
+    "@types/mdast": "latest",
+    "@types/node": "latest",
     "svelte": "latest",
     "svelte-check": "latest",
     "typescript": "latest",
     "vite": "latest",
-    "@types/mdast": "latest",
-    "@types/node": "latest"
+    "vitest": "latest"
   },
   "dependencies": {
     "gray-matter": "latest",
