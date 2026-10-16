@@ -23,13 +23,16 @@
 
   let scratchpadScrollTop = 0;
   let sourceActionMessage = "";
+  let copyMenuOpen = false;
+  let copyDropdownElement: HTMLDivElement;
 
-  async function fetchQuestionSource(): Promise<string> {
+  async function fetchQuestionSource(minimal = false): Promise<string> {
     const encodedQuestionId = question.id
       .split("/")
       .map(encodeURIComponent)
       .join("/");
-    const response = await fetch(`/api/question-source/${encodedQuestionId}`);
+    const query = minimal ? "?minimal=true" : "";
+    const response = await fetch(`/api/question-source/${encodedQuestionId}${query}`);
 
     if (!response.ok) {
       throw new Error(`Question source could not be loaded (${response.status})`);
@@ -38,32 +41,54 @@
     return response.text();
   }
 
-  async function copyQuestionSource() {
+  async function writeClipboard(text: string) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+    const copied = document.execCommand("copy");
+    textarea.remove();
+
+    if (!copied) throw new Error("Clipboard access is unavailable");
+  }
+
+  async function copyQuestionSource(minimal = false) {
+    copyMenuOpen = false;
     sourceActionMessage = "";
 
     try {
-      const source = await fetchQuestionSource();
-
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(source);
-      } else {
-        const textarea = document.createElement("textarea");
-        textarea.value = source;
-        textarea.setAttribute("readonly", "");
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.append(textarea);
-        textarea.select();
-        const copied = document.execCommand("copy");
-        textarea.remove();
-
-        if (!copied) throw new Error("Clipboard access is unavailable");
-      }
-
-      sourceActionMessage = "Markdown copied";
+      const source = await fetchQuestionSource(minimal);
+      await writeClipboard(source);
+      sourceActionMessage = minimal ? "Minimal Markdown copied" : "Markdown copied";
     } catch (error) {
       console.error(error);
       sourceActionMessage = "Could not copy Markdown";
+    }
+  }
+
+  function closeCopyMenuOnOutsideClick(event: MouseEvent) {
+    if (copyMenuOpen && !copyDropdownElement?.contains(event.target as Node)) {
+      copyMenuOpen = false;
+    }
+  }
+
+  function handleCopyMenuKeydown(event: KeyboardEvent) {
+    if (!copyMenuOpen) return;
+
+    if (event.key === "Escape") {
+      copyMenuOpen = false;
+      copyDropdownElement?.querySelector<HTMLButtonElement>(".copy-menu-trigger")?.focus();
+    } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      copyDropdownElement?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
     }
   }
 
@@ -124,6 +149,8 @@
       : "Answer";
 </script>
 
+<svelte:window on:click={closeCopyMenuOnOutsideClick} on:keydown={handleCopyMenuKeydown} />
+
 <section
   class:sidebar-hidden={!showQuestionSidebar}
   class="screen question-screen"
@@ -157,9 +184,29 @@
         >
       </div>
       <div class="source-actions">
-        <button class="wire-button compact flex" type="button" on:click={copyQuestionSource}>
-          Copy
-        </button>
+        <div class="copy-dropdown flex" bind:this={copyDropdownElement}>
+          <div class="copy-button-row">
+            <button class="wire-button compact copy-main-button" type="button" on:click={() => copyQuestionSource()}>
+              Copy
+            </button>
+            <button
+              class="wire-button compact copy-menu-trigger"
+              type="button"
+              aria-label="Copy options"
+              aria-haspopup="menu"
+              aria-expanded={copyMenuOpen}
+              aria-controls="copy-menu"
+              on:click={() => (copyMenuOpen = !copyMenuOpen)}
+            >▾</button>
+          </div>
+          {#if copyMenuOpen}
+            <div class="copy-dropdown-menu" id="copy-menu" role="menu" aria-label="Copy options">
+              <button class="wire-button compact" type="button" role="menuitem" on:click={() => copyQuestionSource(true)}>
+                Copy minimal
+              </button>
+            </div>
+          {/if}
+        </div>
         <button class="wire-button compact flex" type="button" on:click={downloadQuestionSource}>
           Download
         </button>
