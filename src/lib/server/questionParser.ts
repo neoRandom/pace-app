@@ -328,7 +328,7 @@ function removeEmbeddedImagesFromBody(markdown: string): string {
         node.position?.start.offset !== undefined
       ) {
         const imagePattern =
-          /<img\\b[^>]*\\bsrc\\s*=\\s*(?:"data:image\\/[^"]*"|'data:image\\/[^']*'|data:image\\/[^\\s>]+)[^>]*\\/?>/gi;
+          /<img\b[^>]*\bsrc\s*=\s*(?:"data:image\/[^"]*"|'data:image\/[^']*'|data:image\/[^\s>]+)[^>]*\/?>/gi;
         let match: RegExpExecArray | null;
         while ((match = imagePattern.exec(node.value)) !== null) {
           const start = node.position.start.offset + match.index;
