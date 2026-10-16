@@ -395,6 +395,22 @@ a {
   display: none;
 }
 
+.source-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.source-action-message {
+  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.72;
+}
+
+.source-action-message:empty {
+  display: none;
+}
+
 .metadata-actions {
   margin-top: auto;
   display: flex;

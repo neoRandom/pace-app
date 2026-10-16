@@ -284,6 +284,14 @@ export async function loadQuestion(id: string): Promise<ParsedQuestion> {
   return parseQuestion(await readFile(file.path, "utf8"), file.id);
 }
 
+export async function loadQuestionSource(id: string): Promise<string> {
+  const files = await discoverQuestionFiles();
+  const file = files.find((candidate) => candidate.id === id);
+  if (!file) throw new Error(`Question not found: ${id}`);
+
+  return readFile(file.path, "utf8");
+}
+
 export async function loadQuestionMetadata(): Promise<QuestionMetadata[]> {
   const files = await discoverQuestionFiles();
   const result: QuestionMetadata[] = [];
