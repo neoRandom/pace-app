@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseQuestion } from "./questionParser";
+import { parseQuestion, removeEmbeddedImages } from "./questionParser";
 
 function makeQuestion(body: string, frontmatter = "answer: 0"): string {
   return ["---", frontmatter, "---", body].join("\n");
@@ -237,5 +237,70 @@ describe("parseQuestion", () => {
         "invalid-answer"
       )
     ).rejects.toThrow("Invalid answer index: nope");
+
+});
+
+describe("removeEmbeddedImages", () => {
+  it("removes inline and reference-embedded images while preserving content and external images", () => {
+    const source = [
+      "---",
+      "category: Mathematics",
+      "answer: 0",
+      "---",
+      "# Content",
+      "",
+      "Keep this text. ![diagram](data:image/png;base64,INLINE_DATA) Keep this too.",
+      "",
+      "![Referenced diagram][embedded]",
+      "",
+      "[embedded]: data:image/png;base64,REFERENCE_DATA",
+      "",
+      "![External diagram](https://example.com/image.png)",
+      "",
+      "![External reference][external]",
+      "",
+      "[external]: https://example.com/external.png",
+    ].join("\n");
+
+    const minimal = removeEmbeddedImages(source);
+
+    expect(minimal).toContain("category: Mathematics");
+    expect(minimal).toContain("Keep this text.");
+    expect(minimal).toContain("Keep this too.");
+    expect(minimal).not.toContain("INLINE_DATA");
+    expect(minimal).not.toContain("REFERENCE_DATA");
+    expect(minimal).not.toContain("![Referenced diagram]");
+    expect(minimal).not.toContain("[embedded]:");
+    expect(minimal).toContain("![External diagram](https://example.com/image.png)");
+    expect(minimal).toContain("![External reference][external]");
+    expect(minimal).toContain("[external]: https://example.com/external.png");
+  });
+
+  it("removes embedded HTML images but leaves HTML images with external URLs", () => {
+    const source = [
+      "# Content",
+      "",
+      '<img src="data:image/png;base64,HTML_DATA" alt="embedded">',
+      "",
+      '<img src="https://example.com/image.png" alt="external">',
+    ].join("\n");
+
+    const minimal = removeEmbeddedImages(source);
+
+    expect(minimal).not.toContain("HTML_DATA");
+    expect(minimal).not.toContain('alt="embedded"');
+    expect(minimal).toContain('<img src="https://example.com/image.png" alt="external">');
+  });
+
+  it("does not strip image-looking text inside code blocks", () => {
+    const source = [
+      "# Content",
+      "",
+      "```markdown",
+      "![example](data:image/png;base64,KEEP_THIS_CODE)",
+      "```",
+    ].join("\n");
+
+    expect(removeEmbeddedImages(source)).toContain("KEEP_THIS_CODE");
   });
 });
