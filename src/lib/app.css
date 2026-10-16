@@ -401,6 +401,54 @@ a {
   margin-top: 8px;
 }
 
+.copy-dropdown {
+  position: relative;
+  min-width: 0;
+}
+
+.copy-button-row {
+  display: flex;
+  width: 100%;
+}
+
+.copy-main-button {
+  flex: 1;
+  min-width: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.copy-menu-trigger {
+  flex-shrink: 0;
+  width: 30px;
+  padding-right: 5px;
+  padding-left: 5px;
+  border-left-width: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.copy-dropdown-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: max(100%, 140px);
+  padding: 4px;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius);
+  background: var(--color-background);
+  box-shadow: 0 4px 10px var(--color-shadow);
+}
+
+.copy-dropdown-menu button {
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+}
+
 .source-action-message {
   margin-top: 4px;
   font-size: 11px;
