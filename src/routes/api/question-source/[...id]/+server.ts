@@ -1,9 +1,10 @@
 import { error } from '@sveltejs/kit';
 import { loadQuestionSource } from '$lib/server/questionParser';
 
-export async function GET({ params }) {
+export async function GET({ params, url }) {
   try {
-    const source = await loadQuestionSource(params.id);
+    const minimal = url.searchParams.get('minimal') === 'true';
+    const source = await loadQuestionSource(params.id, minimal);
     return new Response(source, {
       headers: {
         'content-type': 'text/markdown; charset=utf-8',

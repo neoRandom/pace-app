@@ -284,12 +284,114 @@ export async function loadQuestion(id: string): Promise<ParsedQuestion> {
   return parseQuestion(await readFile(file.path, "utf8"), file.id);
 }
 
-export async function loadQuestionSource(id: string): Promise<string> {
+function isEmbeddedImageUrl(url: string): boolean {
+  return /^data:image\//i.test(url.trim());
+}
+
+type SourceRange = { start: number; end: number };
+
+function removeEmbeddedImagesFromBody(markdown: string): string {
+  const body = markdown;
+  const root = unified().use(remarkParse).parse(body) as Root;
+  const embeddedDefinitions = new Set<string>();
+  for (const node of root.children) {
+    if (node.type === "definition" && isEmbeddedImageUrl(node.url)) {
+      embeddedDefinitions.add(node.identifier);
+    }
+  }
+  const ranges: SourceRange[] = [];
+
+  const addRange = (node: Node) => {
+    const position = node.position;
+    if (!position) return;
+    const start = position.start.offset;
+    const end = position.end.offset;
+    if (start === undefined || end === undefined) return;
+    ranges.push({ start, end });
+  };
+
+  const visit = (nodes: Node[]) => {
+    for (const node of nodes) {
+      if (
+        (node.type === "image" && isEmbeddedImageUrl(node.url)) ||
+        ((node.type === "imageReference" || node.type === "linkReference") &&
+          embeddedDefinitions.has(node.identifier))
+      ) {
+        addRange(node);
+      }
+
+      // Only inspect actual Markdown HTML nodes, not literal HTML inside code blocks.
+      if (
+        node.type === "html" &&
+        "value" in node &&
+        typeof node.value === "string" &&
+        node.position?.start.offset !== undefined
+      ) {
+        const imagePattern =
+          /<img\b[^>]*\bsrc\s*=\s*(?:"data:image\/[^"]*"|'data:image\/[^']*'|data:image\/[^\s>]+)[^>]*\/?>/gi;
+        let match: RegExpExecArray | null;
+        while ((match = imagePattern.exec(node.value)) !== null) {
+          const start = node.position.start.offset + match.index;
+          ranges.push({ start, end: start + match[0].length });
+        }
+      }
+
+      if ("children" in node && Array.isArray(node.children)) {
+        visit(node.children as Node[]);
+      }
+    }
+  };
+
+  visit(root.children as Node[]);
+
+  // Remove the full definition line; otherwise the base64 payload would remain in the copy.
+  for (const node of root.children) {
+    if (node.type !== "definition" || !isEmbeddedImageUrl(node.url)) continue;
+    const position = node.position;
+    if (!position) continue;
+    let start = position.start.offset;
+    let end = position.end.offset;
+    if (start === undefined || end === undefined) continue;
+
+    const lineStart = body.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+    if (body.slice(lineStart, start).trim() === "") start = lineStart;
+    while (end < body.length && (body[end] === " " || body[end] === "\t")) end += 1;
+    if (body[end] === "\r") end += 1;
+    if (body[end] === "\n") end += 1;
+    ranges.push({ start, end });
+  }
+
+  // Apply right-to-left so earlier source offsets remain valid.
+  ranges.sort((a, b) => b.start - a.start);
+  let previousStart = body.length + 1;
+  for (const range of ranges) {
+    if (range.end > previousStart) continue;
+    body = body.slice(0, range.start) + body.slice(range.end);
+    previousStart = range.start;
+  }
+
+  return body;
+}
+
+export function removeEmbeddedImages(source: string): string {
+  const parsed = matter(source);
+  if (!parsed.content) return source;
+
+  // gray-matter retains the Markdown body as the tail of the original source.
+  const bodyStart = source.length - parsed.content.length;
+  return source.slice(0, bodyStart) + removeEmbeddedImagesFromBody(parsed.content);
+}
+
+export async function loadQuestionSource(
+  id: string,
+  minimal = false,
+): Promise<string> {
   const files = await discoverQuestionFiles();
   const file = files.find((candidate) => candidate.id === id);
   if (!file) throw new Error(`Question not found: ${id}`);
 
-  return readFile(file.path, "utf8");
+  const source = await readFile(file.path, "utf8");
+  return minimal ? removeEmbeddedImages(source) : source;
 }
 
 export async function loadQuestionMetadata(): Promise<QuestionMetadata[]> {
