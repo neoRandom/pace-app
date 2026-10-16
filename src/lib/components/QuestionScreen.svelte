@@ -22,6 +22,73 @@
   export let onDraftInput: (value: string) => void;
 
   let scratchpadScrollTop = 0;
+  let sourceActionMessage = "";
+
+  async function fetchQuestionSource(): Promise<string> {
+    const encodedQuestionId = question.id
+      .split("/")
+      .map(encodeURIComponent)
+      .join("/");
+    const response = await fetch(`/api/question-source/${encodedQuestionId}`);
+
+    if (!response.ok) {
+      throw new Error(`Question source could not be loaded (${response.status})`);
+    }
+
+    return response.text();
+  }
+
+  async function copyQuestionSource() {
+    sourceActionMessage = "";
+
+    try {
+      const source = await fetchQuestionSource();
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(source);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = source;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.append(textarea);
+        textarea.select();
+        const copied = document.execCommand("copy");
+        textarea.remove();
+
+        if (!copied) throw new Error("Clipboard access is unavailable");
+      }
+
+      sourceActionMessage = "Markdown copied";
+    } catch (error) {
+      console.error(error);
+      sourceActionMessage = "Could not copy Markdown";
+    }
+  }
+
+  async function downloadQuestionSource() {
+    sourceActionMessage = "";
+
+    try {
+      const source = await fetchQuestionSource();
+      const blob = new Blob([source], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const filename = question.id.split("/").pop() || "question";
+
+      link.href = url;
+      link.download = `${filename}.md`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      sourceActionMessage = "Download started";
+    } catch (error) {
+      console.error(error);
+      sourceActionMessage = "Could not download Markdown";
+    }
+  }
 
   function optionState(index: number): "correct" | "wrong" | "selected" | "" {
     if (!answered) return selectedAlternative === index ? "selected" : "";
@@ -89,6 +156,15 @@
           >{question.source}</span
         >
       </div>
+      <div class="source-actions">
+        <button class="wire-button compact flex" type="button" on:click={copyQuestionSource}>
+          Copy
+        </button>
+        <button class="wire-button compact flex" type="button" on:click={downloadQuestionSource}>
+          Download
+        </button>
+      </div>
+      <div class="source-action-message" aria-live="polite">{sourceActionMessage}</div>
     </div>
 
     <div class="metadata-actions">
