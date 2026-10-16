@@ -291,12 +291,7 @@ function isEmbeddedImageUrl(url: string): boolean {
 type SourceRange = { start: number; end: number };
 
 function removeEmbeddedImagesFromBody(markdown: string): string {
-  // Remove raw HTML image tags carrying a data URL before calculating Markdown offsets.
-  let body = markdown.replace(
-    /<img\b[^>]*\bsrc\s*=\s*(?:"data:image\/[^"]*"|'data:image\/[^']*'|data:image\/[^\s>]+)[^>]*\/?>/gi,
-    "",
-  );
-
+  const body = markdown;
   const root = unified().use(remarkParse).parse(body) as Root;
   const embeddedDefinitions = new Set<string>();
   for (const node of root.children) {
@@ -323,6 +318,22 @@ function removeEmbeddedImagesFromBody(markdown: string): string {
           embeddedDefinitions.has(node.identifier))
       ) {
         addRange(node);
+      }
+
+      // Only inspect actual Markdown HTML nodes, not literal HTML inside code blocks.
+      if (
+        node.type === "html" &&
+        "value" in node &&
+        typeof node.value === "string" &&
+        node.position?.start.offset !== undefined
+      ) {
+        const imagePattern =
+          /<img\\b[^>]*\\bsrc\\s*=\\s*(?:"data:image\\/[^"]*"|'data:image\\/[^']*'|data:image\\/[^\\s>]+)[^>]*\\/?>/gi;
+        let match: RegExpExecArray | null;
+        while ((match = imagePattern.exec(node.value)) !== null) {
+          const start = node.position.start.offset + match.index;
+          ranges.push({ start, end: start + match[0].length });
+        }
       }
 
       if ("children" in node && Array.isArray(node.children)) {
