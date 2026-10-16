@@ -82,7 +82,7 @@
       document.body.append(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       sourceActionMessage = "Download started";
     } catch (error) {
       console.error(error);
