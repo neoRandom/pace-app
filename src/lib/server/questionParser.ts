@@ -285,7 +285,7 @@ export async function loadQuestion(id: string): Promise<ParsedQuestion> {
 }
 
 function isEmbeddedImageUrl(url: string): boolean {
-  return /^data:image\\//i.test(url.trim());
+  return /^data:image\//i.test(url.trim());
 }
 
 type SourceRange = { start: number; end: number };
@@ -293,7 +293,7 @@ type SourceRange = { start: number; end: number };
 function removeEmbeddedImagesFromBody(markdown: string): string {
   // Remove raw HTML image tags carrying a data URL before calculating Markdown offsets.
   let body = markdown.replace(
-    /<img\\b[^>]*\\bsrc\\s*=\\s*(?:"data:image\\/[^"]*"|'data:image\\/[^']*'|data:image\\/[^\\s>]+)[^>]*\\/?>/gi,
+    /<img\b[^>]*\bsrc\s*=\s*(?:"data:image\/[^"]*"|'data:image\/[^']*'|data:image\/[^\s>]+)[^>]*\/?>/gi,
     "",
   );
 
@@ -341,11 +341,11 @@ function removeEmbeddedImagesFromBody(markdown: string): string {
     let end = position.end.offset;
     if (start === undefined || end === undefined) continue;
 
-    const lineStart = body.lastIndexOf("\\n", Math.max(0, start - 1)) + 1;
+    const lineStart = body.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
     if (body.slice(lineStart, start).trim() === "") start = lineStart;
-    while (end < body.length && (body[end] === " " || body[end] === "\\t")) end += 1;
-    if (body[end] === "\\r") end += 1;
-    if (body[end] === "\\n") end += 1;
+    while (end < body.length && (body[end] === " " || body[end] === "\t")) end += 1;
+    if (body[end] === "\r") end += 1;
+    if (body[end] === "\n") end += 1;
     ranges.push({ start, end });
   }
 
