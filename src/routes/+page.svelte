@@ -3,15 +3,13 @@
   import CooldownScreen from '$lib/components/CooldownScreen.svelte';
   import QuestionScreen from '$lib/components/QuestionScreen.svelte';
   import SettingsModal from '$lib/components/SettingsModal.svelte';
-  import type { AppSettings, ParsedQuestion, QuestionMetadata, TrainingPhase } from '$lib/types';
+  import type { AppSettings, ParsedQuestion, TrainingPhase } from '$lib/types';
   import type { PageData } from './$types';
 import {
   DEFAULT_QUESTION_CONTENT_ALTERNATIVES_RATIO,
   DEFAULT_QUESTION_SCRATCHPAD_RATIO,
 } from '../constants';
 import {
-  EMPTY_CATEGORY_FILTER,
-  ROOT_FOLDER_FILTER,
   filterQuestions,
   getCategoryFilterOptions,
   getFolderFilterOptions,
