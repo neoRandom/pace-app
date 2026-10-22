@@ -4,6 +4,14 @@
     DEFAULT_QUESTION_SCRATCHPAD_RATIO,
     questionPrompt,
   } from "../../constants";
+  import type { QuestionMetadata } from "$lib/types";
+  import {
+    EMPTY_CATEGORY_FILTER,
+    ROOT_FOLDER_FILTER,
+    filterQuestions,
+    getCategoryFilterOptions,
+    getFolderFilterOptions,
+  } from "$lib/questionFilters";
 
   export let theme: 'dark' | 'light' = 'dark';
   export let minMinutes = 10;
@@ -15,6 +23,9 @@
   export let questionContentAlternativesRatio = DEFAULT_QUESTION_CONTENT_ALTERNATIVES_RATIO;
   export let questionScratchpadRatio = DEFAULT_QUESTION_SCRATCHPAD_RATIO;
   export let showQuestionSidebar = true;
+  export let questionMetadata: QuestionMetadata[] = [];
+  export let questionCategoryFilter = "";
+  export let questionFolderFilter = "";
   export let onSave: (
     theme: 'dark' | 'light',
     min: number,
@@ -26,6 +37,8 @@
     questionContentAlternativesRatio: number,
     questionScratchpadRatio: number,
     showQuestionSidebar: boolean,
+    questionCategoryFilter: string,
+    questionFolderFilter: string,
   ) => void;
   export let ignoredQuestionCount = 0;
   export let onClearIgnoreList: () => void;
@@ -41,10 +54,25 @@
   let contentAlternativesRatioValue = questionContentAlternativesRatio;
   let questionScratchpadRatioValue = questionScratchpadRatio;
   let questionSidebarValue = showQuestionSidebar;
+  let questionCategoryFilterValue = questionCategoryFilter;
+  let questionFolderFilterValue = questionFolderFilter;
   let promptCopied = false;
   let notificationError = '';
 
   const notificationsSupported = typeof Notification !== 'undefined';
+
+  $: categoryFilterOptions = getCategoryFilterOptions(questionMetadata);
+  $: folderFilterOptions = getFolderFilterOptions(questionMetadata);
+  $: matchingQuestionCount = filterQuestions(
+    questionMetadata,
+    questionCategoryFilterValue,
+    questionFolderFilterValue,
+  ).length;
+
+  function resetQuestionFilters() {
+    questionCategoryFilterValue = "";
+    questionFolderFilterValue = "";
+  }
 
   async function requestNotificationPermission() {
     notificationError = '';
@@ -148,6 +176,8 @@
       Math.round(contentAlternativesRatio * 1000) / 1000,
       Math.round(questionScratchpadRatio * 1000) / 1000,
       questionSidebarValue,
+      questionCategoryFilterValue,
+      questionFolderFilterValue,
     );
   }
 </script>
@@ -244,6 +274,55 @@
       {:else if notificationValue && notificationsSupported && Notification.permission !== 'granted'}
         <div class="setting-note">Browser permission is requested when notifications are enabled or saved.</div>
       {/if}
+    </div>
+
+    <div class="settings-options question-filter-settings">
+      <div class="setting-section-title">Question filters</div>
+      <div class="setting-note">
+        PACE scanned {questionMetadata.length} question files. Categories come from parsed metadata; folders come from each file's actual path.
+      </div>
+
+      <div class="settings-grid">
+        <label>
+          <span class="setting-label">Category</span>
+          <select bind:value={questionCategoryFilterValue}>
+            <option value="">All categories ({questionMetadata.length})</option>
+            {#each categoryFilterOptions as option}
+              <option value={option.value}>
+                {option.value === EMPTY_CATEGORY_FILTER ? '(empty category)' : option.value} ({option.count})
+              </option>
+            {/each}
+          </select>
+        </label>
+
+        <label>
+          <span class="setting-label">Folder</span>
+          <select bind:value={questionFolderFilterValue}>
+            <option value="">All folders ({questionMetadata.length})</option>
+            {#each folderFilterOptions as option}
+              <option value={option.value}>
+                {option.value === ROOT_FOLDER_FILTER ? '(root folder)' : `${option.value}/`} ({option.count})
+              </option>
+            {/each}
+          </select>
+        </label>
+      </div>
+
+      <div class="setting-note">
+        {matchingQuestionCount} of {questionMetadata.length} {questionMetadata.length === 1 ? 'question matches' : 'questions match'} these filters. Folder counts include nested subfolders.
+      </div>
+
+      <div class="layout-row">
+        <span></span>
+        <button
+          class="wire-button compact"
+          type="button"
+          on:click={resetQuestionFilters}
+          disabled={!questionCategoryFilterValue && !questionFolderFilterValue}
+        >
+          Reset question filters
+        </button>
+      </div>
     </div>
 
     <div class="settings-options layout-settings">
