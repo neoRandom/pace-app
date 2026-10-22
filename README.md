@@ -44,7 +44,7 @@ npm install
 npm test
 ```
 
-The test suite exercises question parsing, frontmatter metadata and defaults, Markdown/GFM rendering, inline and display math, reference links, comment removal, alternative ordering, and invalid or missing answers. `npm test` runs Vitest once after synchronizing SvelteKit's generated types and aliases.
+The test suite exercises question parsing, frontmatter metadata and defaults, Markdown/GFM rendering, inline and display math, reference links, comment removal, alternative ordering, invalid or missing answers, and category/folder filtering derived from the current question inventory. `npm test` runs Vitest once after synchronizing SvelteKit's generated types and aliases.
 
 ## Content directory
 
@@ -116,7 +116,9 @@ Second alternative
 
 ## Settings
 
-The theme, minimum and maximum cooldown values, browser notification preference, background attention-sound preference, attention-sound repeat interval, attention-sound volume, question-layout ratios, and left-column visibility are stored in `localStorage`. Dark mode is the default theme; enabling **Light mode** switches to the light theme.
+The theme, minimum and maximum cooldown values, browser notification preference, background attention-sound preference, attention-sound repeat interval, attention-sound volume, question-layout ratios, left-column visibility, and question filters are stored in `localStorage`. Dark mode is the default theme; enabling **Light mode** switches to the light theme.
+
+**Question filters** are built from the current question inventory rather than a hard-coded list: category names come from question frontmatter, and folder names come from the question's relative path. Counts are shown beside the options. Folder filters include nested subfolders, and category and folder filters can be combined. The available-question count and random selection pool use the active filters.
 
 The question layout provides independent client-side ratios for **question content : alternatives** and **question section : scratchpad**. **Reset layout defaults** restores the proportions used by the default desktop layout. On narrow screens, the application switches to its stacked responsive layout; the left question column can also be hidden entirely through **Show question left column**.
 

@@ -3,12 +3,18 @@
   import CooldownScreen from '$lib/components/CooldownScreen.svelte';
   import QuestionScreen from '$lib/components/QuestionScreen.svelte';
   import SettingsModal from '$lib/components/SettingsModal.svelte';
-  import type { AppSettings, ParsedQuestion, QuestionMetadata, TrainingPhase } from '$lib/types';
+  import type { AppSettings, ParsedQuestion, TrainingPhase } from '$lib/types';
   import type { PageData } from './$types';
 import {
   DEFAULT_QUESTION_CONTENT_ALTERNATIVES_RATIO,
   DEFAULT_QUESTION_SCRATCHPAD_RATIO,
 } from '../constants';
+import {
+  filterQuestions,
+  getCategoryFilterOptions,
+  getFolderFilterOptions,
+  matchesQuestionFilters,
+} from '$lib/questionFilters';
 
   export let data: PageData;
 
@@ -30,6 +36,8 @@ import {
       DEFAULT_QUESTION_CONTENT_ALTERNATIVES_RATIO,
     questionScratchpadRatio: DEFAULT_QUESTION_SCRATCHPAD_RATIO,
     showQuestionSidebar: true,
+    questionCategoryFilter: '',
+    questionFolderFilter: '',
   };
 
   let settings: AppSettings = { ...DEFAULT_SETTINGS };
@@ -71,7 +79,17 @@ import {
   let attentionCueTimeoutId: ReturnType<typeof setTimeout> | null = null;
   let attentionAudio: HTMLAudioElement | null = null;
 
-  $: availableQuestionCount = Math.max(0, data.questions.length - ignoredQuestionFiles.size);
+  $: categoryFilterOptions = getCategoryFilterOptions(data.questions);
+  $: folderFilterOptions = getFolderFilterOptions(data.questions);
+  $: filteredQuestions = filterQuestions(
+    data.questions,
+    settings.questionCategoryFilter,
+    settings.questionFolderFilter,
+  );
+  $: filteredQuestionCount = filteredQuestions.length;
+  $: availableQuestionCount = filteredQuestions.filter(
+    (question) => !ignoredQuestionFiles.has(`${question.id}.md`),
+  ).length;
 
   function createAttentionAudio(): HTMLAudioElement {
     const audio = new Audio('/audio/attention-cue.wav');
@@ -338,7 +356,19 @@ import {
     selectedAlternative = null;
     phase = 'cooldown';
     loadingQuestion = false;
-    startCooldownTimer();
+    if (
+      filterQuestions(
+        data.questions,
+        settings.questionCategoryFilter,
+        settings.questionFolderFilter,
+      ).length > 0
+    ) {
+      startCooldownTimer();
+    } else {
+      stopCooldownTimer();
+      remainingMs = 0;
+      cooldownPaused = false;
+    }
     syncAttentionCue();
   }
 
@@ -396,12 +426,16 @@ import {
   async function loadNextQuestion() {
     await initializeSelectionState();
 
-    const pool = data.questions;
+    const pool = filteredQuestions;
     if (pool.length === 0) {
-      resetQuestionElapsedTimer();
+      clearQuestionSession();
+      clearQuestionEphemeralState();
       activeQuestion = null;
       activeQuestionId = null;
-      phase = 'answering';
+      selectedAlternative = null;
+      phase = 'cooldown';
+      loadingQuestion = false;
+      stopCooldownTimer();
       syncAttentionCue();
       return;
     }
@@ -411,7 +445,12 @@ import {
     );
 
     if (candidates.length === 0) {
-      ignoredQuestionFiles = new Set();
+      // Restart the ignore cycle for this filtered pool only. Keep ignored
+      // questions from other categories/folders untouched.
+      const poolFiles = new Set(pool.map((question) => `${question.id}.md`));
+      ignoredQuestionFiles = new Set(
+        [...ignoredQuestionFiles].filter((fileName) => !poolFiles.has(fileName)),
+      );
       persistIgnoreList();
       candidates = pool;
     }
@@ -448,7 +487,24 @@ import {
     const session = readQuestionSession();
     if (!session) {
       localStorage.removeItem(QUESTION_SESSION_KEY);
-      startCooldownTimer();
+      if (filterQuestions(data.questions, settings.questionCategoryFilter, settings.questionFolderFilter).length > 0) {
+        startCooldownTimer();
+      } else {
+        stopCooldownTimer();
+      }
+      return;
+    }
+
+    const sessionMetadata = data.questions.find((question) => question.id === session.questionId);
+    if (
+      !sessionMetadata ||
+      !matchesQuestionFilters(
+        sessionMetadata,
+        settings.questionCategoryFilter,
+        settings.questionFolderFilter,
+      )
+    ) {
+      clearQuestionSessionAndReturnToCooldown();
       return;
     }
 
@@ -565,7 +621,20 @@ import {
     questionContentAlternativesRatio: number,
     questionScratchpadRatio: number,
     showQuestionSidebar: boolean,
+    questionCategoryFilter: string,
+    questionFolderFilter: string,
   ) {
+    const filterChanged =
+      questionCategoryFilter !== settings.questionCategoryFilter ||
+      questionFolderFilter !== settings.questionFolderFilter;
+    const nextPool = filterQuestions(
+      data.questions,
+      questionCategoryFilter,
+      questionFolderFilter,
+    );
+    const activeQuestionRemainsAllowed =
+      !!activeQuestionId && nextPool.some((question) => question.id === activeQuestionId);
+
     persistSettings({
       theme,
       minCooldownMinutes: minMinutes,
@@ -577,9 +646,31 @@ import {
       questionContentAlternativesRatio,
       questionScratchpadRatio,
       showQuestionSidebar,
+      questionCategoryFilter,
+      questionFolderFilter,
     });
     settingsOpen = false;
-    if (phase === 'cooldown') startCooldownTimer();
+
+    if (filterChanged && activeQuestionId && !activeQuestionRemainsAllowed) {
+      clearQuestionSession();
+      clearQuestionEphemeralState();
+      activeQuestion = null;
+      activeQuestionId = null;
+      selectedAlternative = null;
+      phase = 'cooldown';
+      loadingQuestion = false;
+      syncAttentionCue();
+    }
+
+    if (phase === 'cooldown') {
+      if (nextPool.length > 0) {
+        startCooldownTimer();
+      } else {
+        stopCooldownTimer();
+        remainingMs = 0;
+        cooldownPaused = false;
+      }
+    }
   }
 
   function draftChanged(value: string) {
@@ -704,6 +795,18 @@ import {
               typeof parsed.showQuestionSidebar === 'boolean'
                 ? parsed.showQuestionSidebar
                 : DEFAULT_SETTINGS.showQuestionSidebar,
+            questionCategoryFilter:
+              typeof parsed.questionCategoryFilter === 'string' &&
+              (parsed.questionCategoryFilter === '' ||
+                categoryFilterOptions.some((option) => option.value === parsed.questionCategoryFilter))
+                ? parsed.questionCategoryFilter
+                : DEFAULT_SETTINGS.questionCategoryFilter,
+            questionFolderFilter:
+              typeof parsed.questionFolderFilter === 'string' &&
+              (parsed.questionFolderFilter === '' ||
+                folderFilterOptions.some((option) => option.value === parsed.questionFolderFilter))
+                ? parsed.questionFolderFilter
+                : DEFAULT_SETTINGS.questionFolderFilter,
           };
         }
       } catch {
@@ -744,7 +847,26 @@ import {
   });
 </script>
 
-{#if phase === 'cooldown'}
+{#if data.questions.length === 0}
+  <section class="screen loading-screen">
+    <div class="loading-box">
+      <div>No local questions found.</div>
+      <div class="loading-detail">Add Markdown files to <code>&lt;PACE_CONTENT_DIR&gt;/questions/</code>.</div>
+    </div>
+  </section>
+{:else if filteredQuestionCount === 0}
+  <section class="screen loading-screen">
+    <div class="loading-box">
+      <div class="empty-state-title">No questions match these filters.</div>
+      <div class="loading-detail">
+        PACE scanned {data.questions.length} question files. Change the category or folder filters to include more questions.
+      </div>
+      <button class="wire-button empty-state-button" type="button" on:click={openSettings}>
+        Adjust filters
+      </button>
+    </div>
+  </section>
+{:else if phase === 'cooldown'}
   <CooldownScreen
     {remainingMs}
     {cooldownPaused}
@@ -781,14 +903,9 @@ import {
 {:else}
   <section class="screen loading-screen">
     <div class="loading-box">
-      {#if data.questions.length === 0}
-        <div>No local questions found.</div>
-        <div class="loading-detail">Add Markdown files to <code>&lt;PACE_CONTENT_DIR&gt;/questions/</code>.</div>
-      {:else}
-        <div>Loading question…</div>
-        {#if activeQuestionId}
-          <div class="loading-question-filename">{activeQuestionId}.md</div>
-        {/if}
+      <div>Loading question…</div>
+      {#if activeQuestionId}
+        <div class="loading-question-filename">{activeQuestionId}.md</div>
       {/if}
     </div>
   </section>
@@ -807,6 +924,9 @@ import {
     questionScratchpadRatio={settings.questionScratchpadRatio}
     showQuestionSidebar={settings.showQuestionSidebar}
     ignoredQuestionCount={ignoredQuestionFiles.size}
+    questionMetadata={data.questions}
+    questionCategoryFilter={settings.questionCategoryFilter}
+    questionFolderFilter={settings.questionFolderFilter}
     onClearIgnoreList={clearIgnoreList}
     onSave={saveSettings}
     onClose={() => (settingsOpen = false)}
@@ -830,7 +950,18 @@ import {
   .loading-detail {
     margin-top: 12px;
     font-size: 14px;
+    line-height: 1.5;
   }
+
+  .empty-state-title {
+    font-size: 18px;
+    font-weight: bold;
+  }
+
+  .empty-state-button {
+    margin-top: 18px;
+  }
+
   .loading-question-filename {
     margin-top: 6px;
     overflow: hidden;
