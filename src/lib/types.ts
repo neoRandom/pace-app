@@ -24,6 +24,8 @@ export interface AppSettings {
   questionContentAlternativesRatio: number;
   questionScratchpadRatio: number;
   showQuestionSidebar: boolean;
+  questionCategoryFilter: string;
+  questionFolderFilter: string;
 }
 
 export type TrainingPhase = 'cooldown' | 'answering' | 'answered';
