@@ -923,7 +923,7 @@ import {
     questionContentAlternativesRatio={settings.questionContentAlternativesRatio}
     questionScratchpadRatio={settings.questionScratchpadRatio}
     showQuestionSidebar={settings.showQuestionSidebar}
-    ignoredQuestionCount={filteredQuestionCount - availableQuestionCount}
+    ignoredQuestionCount={ignoredQuestionFiles.size}
     questionMetadata={data.questions}
     questionCategoryFilter={settings.questionCategoryFilter}
     questionFolderFilter={settings.questionFolderFilter}
