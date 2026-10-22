@@ -72,6 +72,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -90,6 +91,7 @@ button:active:not(:disabled) {
 
 button:focus-visible,
 input:focus-visible,
+select:focus-visible,
 textarea:focus-visible {
   outline: 2px solid var(--color-foreground);
   outline-offset: 2px;
@@ -744,7 +746,11 @@ a {
   line-height: 1.2;
 }
 
-.settings-grid input {
+.settings-grid input,
+.settings-grid select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--border-radius);
   background: var(--color-background);
@@ -752,7 +758,12 @@ a {
   padding: 12px;
 }
 
-.settings-grid input:disabled {
+.settings-grid select {
+  cursor: pointer;
+}
+
+.settings-grid input:disabled,
+.settings-grid select:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
