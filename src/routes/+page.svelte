@@ -623,7 +623,20 @@ import {
     questionContentAlternativesRatio: number,
     questionScratchpadRatio: number,
     showQuestionSidebar: boolean,
+    questionCategoryFilter: string,
+    questionFolderFilter: string,
   ) {
+    const filterChanged =
+      questionCategoryFilter !== settings.questionCategoryFilter ||
+      questionFolderFilter !== settings.questionFolderFilter;
+    const nextPool = filterQuestions(
+      data.questions,
+      questionCategoryFilter,
+      questionFolderFilter,
+    );
+    const activeQuestionRemainsAllowed =
+      !!activeQuestionId && nextPool.some((question) => question.id === activeQuestionId);
+
     persistSettings({
       theme,
       minCooldownMinutes: minMinutes,
@@ -635,9 +648,31 @@ import {
       questionContentAlternativesRatio,
       questionScratchpadRatio,
       showQuestionSidebar,
+      questionCategoryFilter,
+      questionFolderFilter,
     });
     settingsOpen = false;
-    if (phase === 'cooldown') startCooldownTimer();
+
+    if (filterChanged && activeQuestionId && !activeQuestionRemainsAllowed) {
+      clearQuestionSession();
+      clearQuestionEphemeralState();
+      activeQuestion = null;
+      activeQuestionId = null;
+      selectedAlternative = null;
+      phase = 'cooldown';
+      loadingQuestion = false;
+      syncAttentionCue();
+    }
+
+    if (phase === 'cooldown') {
+      if (nextPool.length > 0) {
+        startCooldownTimer();
+      } else {
+        stopCooldownTimer();
+        remainingMs = 0;
+        cooldownPaused = false;
+      }
+    }
   }
 
   function draftChanged(value: string) {
@@ -762,6 +797,18 @@ import {
               typeof parsed.showQuestionSidebar === 'boolean'
                 ? parsed.showQuestionSidebar
                 : DEFAULT_SETTINGS.showQuestionSidebar,
+            questionCategoryFilter:
+              typeof parsed.questionCategoryFilter === 'string' &&
+              (parsed.questionCategoryFilter === '' ||
+                categoryFilterOptions.some((option) => option.value === parsed.questionCategoryFilter))
+                ? parsed.questionCategoryFilter
+                : DEFAULT_SETTINGS.questionCategoryFilter,
+            questionFolderFilter:
+              typeof parsed.questionFolderFilter === 'string' &&
+              (parsed.questionFolderFilter === '' ||
+                folderFilterOptions.some((option) => option.value === parsed.questionFolderFilter))
+                ? parsed.questionFolderFilter
+                : DEFAULT_SETTINGS.questionFolderFilter,
           };
         }
       } catch {
@@ -864,7 +911,10 @@ import {
     questionContentAlternativesRatio={settings.questionContentAlternativesRatio}
     questionScratchpadRatio={settings.questionScratchpadRatio}
     showQuestionSidebar={settings.showQuestionSidebar}
-    ignoredQuestionCount={ignoredQuestionFiles.size}
+    ignoredQuestionCount={filteredQuestionCount - availableQuestionCount}
+    questionMetadata={data.questions}
+    questionCategoryFilter={settings.questionCategoryFilter}
+    questionFolderFilter={settings.questionFolderFilter}
     onClearIgnoreList={clearIgnoreList}
     onSave={saveSettings}
     onClose={() => (settingsOpen = false)}
