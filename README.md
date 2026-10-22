@@ -44,7 +44,7 @@ npm install
 npm test
 ```
 
-The test suite exercises question parsing, frontmatter metadata and defaults, Markdown/GFM rendering, inline and display math, reference links, comment removal, alternative ordering, and invalid or missing answers. `npm test` runs Vitest once after synchronizing SvelteKit's generated types and aliases.
+The test suite exercises question parsing, frontmatter metadata and defaults, Markdown/GFM rendering, inline and display math, reference links, comment removal, alternative ordering, invalid or missing answers, and category/folder filtering derived from the current question inventory. `npm test` runs Vitest once after synchronizing SvelteKit's generated types and aliases.
 
 ## Content directory
 
