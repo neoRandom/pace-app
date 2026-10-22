@@ -849,7 +849,26 @@ import {
   });
 </script>
 
-{#if phase === 'cooldown'}
+{#if data.questions.length === 0}
+  <section class="screen loading-screen">
+    <div class="loading-box">
+      <div>No local questions found.</div>
+      <div class="loading-detail">Add Markdown files to <code>&lt;PACE_CONTENT_DIR&gt;/questions/</code>.</div>
+    </div>
+  </section>
+{:else if filteredQuestionCount === 0}
+  <section class="screen loading-screen">
+    <div class="loading-box">
+      <div class="empty-state-title">No questions match these filters.</div>
+      <div class="loading-detail">
+        PACE scanned {data.questions.length} question files. Change the category or folder filters to include more questions.
+      </div>
+      <button class="wire-button empty-state-button" type="button" on:click={openSettings}>
+        Adjust filters
+      </button>
+    </div>
+  </section>
+{:else if phase === 'cooldown'}
   <CooldownScreen
     {remainingMs}
     {cooldownPaused}
@@ -886,14 +905,9 @@ import {
 {:else}
   <section class="screen loading-screen">
     <div class="loading-box">
-      {#if data.questions.length === 0}
-        <div>No local questions found.</div>
-        <div class="loading-detail">Add Markdown files to <code>&lt;PACE_CONTENT_DIR&gt;/questions/</code>.</div>
-      {:else}
-        <div>Loading question…</div>
-        {#if activeQuestionId}
-          <div class="loading-question-filename">{activeQuestionId}.md</div>
-        {/if}
+      <div>Loading question…</div>
+      {#if activeQuestionId}
+        <div class="loading-question-filename">{activeQuestionId}.md</div>
       {/if}
     </div>
   </section>
@@ -938,7 +952,18 @@ import {
   .loading-detail {
     margin-top: 12px;
     font-size: 14px;
+    line-height: 1.5;
   }
+
+  .empty-state-title {
+    font-size: 18px;
+    font-weight: bold;
+  }
+
+  .empty-state-button {
+    margin-top: 18px;
+  }
+
   .loading-question-filename {
     margin-top: 6px;
     overflow: hidden;
