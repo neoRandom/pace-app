@@ -309,7 +309,7 @@
       </div>
 
       <div class="setting-note">
-        {matchingQuestionCount} of {questionMetadata.length} {questionMetadata.length === 1 ? 'question matches' : 'questions match'} these filters. Folder counts include nested subfolders.
+        {matchingQuestionCount} of {questionMetadata.length} {questionMetadata.length === 1 ? 'question matches' : 'questions match'} these filters. Option counts use the full inventory; parent-folder counts include nested subfolders.
       </div>
 
       <div class="layout-row">
