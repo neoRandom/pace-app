@@ -57,9 +57,9 @@ export function getCategoryFilterOptions(
   return [...counts.entries()]
     .map(([value, count]) => ({ value, count }))
     .sort((a, b) => {
-      const aLabel = a.value === EMPTY_CATEGORY_FILTER ? "" : a.value;
-      const bLabel = b.value === EMPTY_CATEGORY_FILTER ? "" : b.value;
-      return aLabel.localeCompare(bLabel);
+      if (a.value === EMPTY_CATEGORY_FILTER) return 1;
+      if (b.value === EMPTY_CATEGORY_FILTER) return -1;
+      return a.value.localeCompare(b.value);
     });
 }
 
