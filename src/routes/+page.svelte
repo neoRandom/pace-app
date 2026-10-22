@@ -9,6 +9,14 @@ import {
   DEFAULT_QUESTION_CONTENT_ALTERNATIVES_RATIO,
   DEFAULT_QUESTION_SCRATCHPAD_RATIO,
 } from '../constants';
+import {
+  EMPTY_CATEGORY_FILTER,
+  ROOT_FOLDER_FILTER,
+  filterQuestions,
+  getCategoryFilterOptions,
+  getFolderFilterOptions,
+  matchesQuestionFilters,
+} from '$lib/questionFilters';
 
   export let data: PageData;
 
@@ -30,6 +38,8 @@ import {
       DEFAULT_QUESTION_CONTENT_ALTERNATIVES_RATIO,
     questionScratchpadRatio: DEFAULT_QUESTION_SCRATCHPAD_RATIO,
     showQuestionSidebar: true,
+    questionCategoryFilter: '',
+    questionFolderFilter: '',
   };
 
   let settings: AppSettings = { ...DEFAULT_SETTINGS };
@@ -71,7 +81,17 @@ import {
   let attentionCueTimeoutId: ReturnType<typeof setTimeout> | null = null;
   let attentionAudio: HTMLAudioElement | null = null;
 
-  $: availableQuestionCount = Math.max(0, data.questions.length - ignoredQuestionFiles.size);
+  $: categoryFilterOptions = getCategoryFilterOptions(data.questions);
+  $: folderFilterOptions = getFolderFilterOptions(data.questions);
+  $: filteredQuestions = filterQuestions(
+    data.questions,
+    settings.questionCategoryFilter,
+    settings.questionFolderFilter,
+  );
+  $: filteredQuestionCount = filteredQuestions.length;
+  $: availableQuestionCount = filteredQuestions.filter(
+    (question) => !ignoredQuestionFiles.has(`${question.id}.md`),
+  ).length;
 
   function createAttentionAudio(): HTMLAudioElement {
     const audio = new Audio('/audio/attention-cue.wav');
@@ -338,7 +358,19 @@ import {
     selectedAlternative = null;
     phase = 'cooldown';
     loadingQuestion = false;
-    startCooldownTimer();
+    if (
+      filterQuestions(
+        data.questions,
+        settings.questionCategoryFilter,
+        settings.questionFolderFilter,
+      ).length > 0
+    ) {
+      startCooldownTimer();
+    } else {
+      stopCooldownTimer();
+      remainingMs = 0;
+      cooldownPaused = false;
+    }
     syncAttentionCue();
   }
 
@@ -396,12 +428,16 @@ import {
   async function loadNextQuestion() {
     await initializeSelectionState();
 
-    const pool = data.questions;
+    const pool = filteredQuestions;
     if (pool.length === 0) {
-      resetQuestionElapsedTimer();
+      clearQuestionSession();
+      clearQuestionEphemeralState();
       activeQuestion = null;
       activeQuestionId = null;
-      phase = 'answering';
+      selectedAlternative = null;
+      phase = 'cooldown';
+      loadingQuestion = false;
+      stopCooldownTimer();
       syncAttentionCue();
       return;
     }
@@ -411,7 +447,12 @@ import {
     );
 
     if (candidates.length === 0) {
-      ignoredQuestionFiles = new Set();
+      // Restart the ignore cycle for this filtered pool only. Keep ignored
+      // questions from other categories/folders untouched.
+      const poolFiles = new Set(pool.map((question) => `${question.id}.md`));
+      ignoredQuestionFiles = new Set(
+        [...ignoredQuestionFiles].filter((fileName) => !poolFiles.has(fileName)),
+      );
       persistIgnoreList();
       candidates = pool;
     }
@@ -448,7 +489,24 @@ import {
     const session = readQuestionSession();
     if (!session) {
       localStorage.removeItem(QUESTION_SESSION_KEY);
-      startCooldownTimer();
+      if (filterQuestions(data.questions, settings.questionCategoryFilter, settings.questionFolderFilter).length > 0) {
+        startCooldownTimer();
+      } else {
+        stopCooldownTimer();
+      }
+      return;
+    }
+
+    const sessionMetadata = data.questions.find((question) => question.id === session.questionId);
+    if (
+      !sessionMetadata ||
+      !matchesQuestionFilters(
+        sessionMetadata,
+        settings.questionCategoryFilter,
+        settings.questionFolderFilter,
+      )
+    ) {
+      clearQuestionSessionAndReturnToCooldown();
       return;
     }
 
