@@ -11,9 +11,7 @@ The example deliberately demonstrates supported syntax. It is a reference, not a
 ~~~~markdown
 ---
 category: Physics
-tags:
-  - Mechanics
-  - Rotational Motion
+tags: Mechanics; Rotational Motion
 source: "Replace with book, exam, paper, or other source and question number"
 effort: "Single Step"
 knowledge: "~10"
@@ -107,7 +105,7 @@ Fourth alternative. Add or remove alternatives as needed, and update answer.
 ## Rules encoded by the template
 
 - **Frontmatter is YAML and starts at the very top of the file.** Keep the opening and closing **---** delimiters. Do not put a title, blank line, or comment before the opening delimiter.
-- **Metadata fields:** **category**, **tags**, **source**, **effort**, **knowledge**, and **answer** are read by PACE. The first five describe the question; **answer** determines the correct alternative. Use a YAML list for **tags** as shown. A semicolon-separated string is also accepted.
+- **Metadata fields:** **category**, **tags**, **source**, **effort**, **knowledge**, and **answer** are read by PACE. The first five describe the question; **answer** determines the correct alternative. Use a semicolon-separated string for **tags** as shown, matching the format used by your question files. A YAML list is also accepted.
 - **The file path supplies the ID.** Do not add an **id** frontmatter field. The path relative to **questions/** is the ID without the **.md** extension.
 - **Use the two structural level-one headings exactly as shown:** **# Content** and **# Alternatives**. Matching is case-insensitive. The content section runs between those headings; level-one headings are structural and are not rendered as normal content.
 - **The answer index is zero-based.** The first alternative is **answer: 0**, the second is **answer: 1**, and so on. It must be a non-negative integer smaller than the number of alternatives. Every question needs at least one alternative.
